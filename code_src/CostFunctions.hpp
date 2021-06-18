@@ -92,6 +92,28 @@ void Convert6ParameterAxisAngleRepresentationIntoMatrix(const T* X, T* XM){
 }
 
 template <typename T>
+void ConvertMatrixInto6ParameterAxisAngleRepresentation(const T* XM, T* X){
+
+  T RX[9];
+  RX[0] = XM[0];
+  RX[1] = XM[1];
+  RX[2] = XM[2];
+  RX[3] = XM[4];
+  RX[4] = XM[5];
+  RX[5] = XM[6];
+  RX[6] = XM[8];
+  RX[7] = XM[9];
+  RX[8] = XM[10];
+
+  ceres::RotationMatrixToAngleAxis(RX, X);
+
+  X[3] = XM[3];
+  X[4] = XM[7];
+  X[5] = XM[11];
+  X[6] = T(0);
+}
+
+template <typename T>
 void Convert7ParameterQuaternionRepresentationIntoMatrix(const T* X, T* XM){
 	T RX[9];
 
