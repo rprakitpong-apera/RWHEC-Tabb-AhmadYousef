@@ -39,6 +39,7 @@
 using namespace std;
 
 bool VERBOSE = true;
+
 bool useWithBPA = false;
 bool hasInitSol = false;
 
@@ -102,13 +103,7 @@ int main(int argc, char ** argv) {
   }
 
   ifstream in ; in .open(cali_object_file.c_str());
-  /*
-    if (! in ) {
-      cout << "You forgot the calibration_object.txt file or the path is wrong" << endl << argv[1] << endl;;
-      cout << cali_object_file << endl;
-      exit(1);
-    } in .close();
-  */
+
   //	string temp;
   //	in >> temp >> chess_mm_height;
   //	in >> temp >> chess_mm_width;
@@ -167,8 +162,10 @@ int main(int argc, char ** argv) {
   //-----------------------------------------------------------------------
 
   // set up out
+
   useWithBPA = false;
   hasInitSol = true;
+
 
   std::ofstream out;
   std::string filename = write_dir + "/return.txt";
@@ -177,7 +174,7 @@ int main(int argc, char ** argv) {
   int robot_mounted_cameras = 1;
 
   vector < vector < MatrixXd > > As;
-  vector < Matrix4d > Atemp;
+  vector<Matrix4d> Atemp;
   vector < Matrix4d > Bs;
 
   // parse As (camera to pattern matrix)
@@ -250,6 +247,7 @@ int main(int argc, char ** argv) {
       ceres::AngleAxisToQuaternion(null_triple, & xarray[7 * i]);
     }
   }
+
 
   double x_init[16] = {
     -0.3878959617055199,
@@ -415,6 +413,7 @@ int main(int argc, char ** argv) {
     X = X.inverse().eval();
   }
 
+
   if (useWithBPA) {
     //Matrix4d temp = X;
     //X = Zs[0];
@@ -423,7 +422,6 @@ int main(int argc, char ** argv) {
   //Zs[0] = Zs[0].inverse().eval();
   }
 
-  // save iterative solution translation and rotation errors to file
   out << "X " << endl << X << endl;
   cout << "X " << endl << X << endl;
 
@@ -1536,11 +1534,13 @@ void ReadRobotFileRobotCaliTxt(string filename, vector < Matrix4d > & Bs) {
       }
     }
 
+
     if (useWithBPA) {
       Bs.push_back(B1.inverse().eval());
     } else {
       Bs.push_back(B1);
     }
+
   } in .close();
 }
 
