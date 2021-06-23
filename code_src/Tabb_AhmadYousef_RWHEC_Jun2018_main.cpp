@@ -40,6 +40,9 @@ using namespace std;
 
 bool VERBOSE = true;
 
+bool useWithBPA = false;
+bool hasInitSol = false;
+
 int main(int argc, char ** argv) {
   google::InitGoogleLogging(argv[0]);
 
@@ -100,13 +103,7 @@ int main(int argc, char ** argv) {
   }
 
   ifstream in ; in .open(cali_object_file.c_str());
-/*
-  if (! in ) {
-    cout << "You forgot the calibration_object.txt file or the path is wrong" << endl << argv[1] << endl;;
-    cout << cali_object_file << endl;
-    exit(1);
-  } in .close();
-*/
+
   //	string temp;
   //	in >> temp >> chess_mm_height;
   //	in >> temp >> chess_mm_width;
@@ -165,6 +162,10 @@ int main(int argc, char ** argv) {
   //-----------------------------------------------------------------------
 
   // set up out
+
+  useWithBPA = false;
+  hasInitSol = true;
+
 
   std::ofstream out;
   std::string filename = write_dir + "/return.txt";
@@ -247,47 +248,109 @@ int main(int argc, char ** argv) {
     }
   }
 
-  // give reasonable initial guess
-  // X
-  double x_init[16] = {0.007260096311636788,
-          0.9999217623741498,
-          0.008851729677161368,
-          0.5246475131872872,
-          0.9997830303513556,
-          -0.007085006931888252,
-          -0.019421653661592122,
-          -0.23784146013932012,
-          -0.019360294635344173,
-          0.00898883987451476,
-          -0.9997580352727142,
-          1.4378064225857234,
-          0.0,
-          0.0,
-          0.0,
-          1.0};
-  ConvertMatrixInto6ParameterAxisAngleRepresentation< double >(&x_init[0], &xarray[0]);
-  double z_init[16] = {-0.3878959617055199,
-          0.004364263373850057,
-          -0.9216778580175975,
-          -0.0457420235938677,
-          0.9210131460735058,
-          -0.03632518488656273,
-          -0.3877932284519243,
-          -0.03632998413824456,
-          -0.03517160646989169,
-          -0.9993203872519777,
-          0.010070694226061622,
-          0.037211409415038775,
-          0.0,
-          0.0,
-          0.0,
-          1.0};
-  ConvertMatrixInto6ParameterAxisAngleRepresentation< double >(&z_init[0], &xarray[7]);
 
+  double x_init[16] = {
+    -0.3878959617055199,
+    0.004364263373850057,
+    -0.9216778580175975,
+    -0.0457420235938677,
+    0.9210131460735058,
+    -0.03632518488656273,
+    -0.3877932284519243,
+    -0.03632998413824456,
+    -0.03517160646989169,
+    -0.9993203872519777,
+    0.010070694226061622,
+    0.037211409415038775,
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  };
+  double z_init[16] = {
+    0.007260096311636788,
+    0.9999217623741498,
+    0.008851729677161368,
+    0.5246475131872872,
+    0.9997830303513556,
+    -0.007085006931888252,
+    -0.019421653661592122,
+    -0.23784146013932012,
+    -0.019360294635344173,
+    0.00898883987451476,
+    -0.9997580352727142,
+    1.4378064225857234,
+    0.0,
+    0.0,
+    0.0,
+    1.0
+  };
 
-  cout << "\nStart solving ...\n";
+  if (hasInitSol) {
+  // give reasonable initial guess, from set-3 19--9.json
+  // X = tcp 2 pattern
+  // Z = rob 2 cam
+  ConvertMatrixInto6ParameterAxisAngleRepresentation < double > ( & x_init[0], & xarray[7]); // put into z
+  ConvertMatrixInto6ParameterAxisAngleRepresentation < double > ( & z_init[0], & xarray[0]); // put into x
+  }
+
+  // save initial solution translation and rotation errors to file
+  out << "Initial solutions" << endl;
+  if (hasInitSol) {
+  for (int r = 0, in = 0; r < 4; r++) {
+    for (int c = 0; c < 4; c++, in ++) {
+      X(r, c) = z_init[ in ];
+    }
+  }
+  for (int i = 1; i < (robot_mounted_cameras + 1); i++) {
+    for (int r = 0, in = 0; r < 4; r++) {
+      for (int c = 0; c < 4; c++, in ++) {
+        Zs[i - 1](r, c) = x_init[ in ];
+      }
+    }
+  }
+  }
+  out << "X " << endl << X << endl;
+  cout << "X " << endl << X << endl;
+
+  for (int i = 0; i < robot_mounted_cameras; i++) {
+    out << "Z " << i << endl << Zs[i] << endl;
+    cout << "Z " << i << endl << Zs[i] << endl;
+  }
+
+  out << "Errors from initial solution" << endl;
+  double error;
+  error = 0;
+
+  for (int i = 0; i < robot_mounted_cameras; i++) {
+    cout << "Size " << As[i].size() << ", " << Bs.size() << ", " << Zs.size() << endl;
+
+    error += AssessRotationError(As[i], Bs, X, Zs[i]);
+  }
+  out << "Summed rotation error " << error << endl;
+
+  error = 0;
+  for (int i = 0; i < robot_mounted_cameras; i++) {
+    cout << "Size " << As[i].size() << ", " << Bs.size() << ", " << Zs.size() << endl;
+    error += AssessRotationErrorAxisAngle(As[i], Bs, X, Zs[i]);
+  }
+  out << "Summed angle difference rotation error " << error << endl;
+
+  error = 0;
+  for (int i = 0; i < robot_mounted_cameras; i++) {
+    error += AssessTranslationError(As[i], Bs, X, Zs[i]);
+  }
+  out << "Summed translation error " << error << endl;
+
+  error = 0;
+  for (int i = 0; i < robot_mounted_cameras; i++) {
+    error += AssessErrorWhole(As[i], Bs, X, Zs[i]);
+  }
+  out << "Summed whole error " << error << endl;
+  out << endl;
 
   // solve
+  cout << "\nStart solving ...\n";
 
   if (separable == false) {
     CF1_2_multi_camera(As, Bs, xarray, out, param_type, cost_type);
@@ -295,7 +358,6 @@ int main(int argc, char ** argv) {
     CF1_2_multi_camera_separable(As, Bs, xarray, out, param_type, cost_type, rotation_only);
     CF1_2_multi_camera_separable(As, Bs, xarray, out, param_type, cost_type, translation_only);
   }
-
 
   cout << "Solving finished ...\n";
 
@@ -351,6 +413,15 @@ int main(int argc, char ** argv) {
     X = X.inverse().eval();
   }
 
+
+  if (useWithBPA) {
+    //Matrix4d temp = X;
+    //X = Zs[0];
+    //Zs[0] = temp;
+  //X = X.inverse().eval();
+  //Zs[0] = Zs[0].inverse().eval();
+  }
+
   out << "X " << endl << X << endl;
   cout << "X " << endl << X << endl;
 
@@ -358,6 +429,36 @@ int main(int argc, char ** argv) {
     out << "Z " << i << endl << Zs[i] << endl;
     cout << "Z " << i << endl << Zs[i] << endl;
   }
+
+  out << "Errors from iterative solution" << endl;
+  error = 0;
+
+  for (int i = 0; i < robot_mounted_cameras; i++) {
+    cout << "Size " << As[i].size() << ", " << Bs.size() << ", " << Zs.size() << endl;
+
+    error += AssessRotationError(As[i], Bs, X, Zs[i]);
+  }
+  out << "Summed rotation error " << error << endl;
+
+  error = 0;
+  for (int i = 0; i < robot_mounted_cameras; i++) {
+    cout << "Size " << As[i].size() << ", " << Bs.size() << ", " << Zs.size() << endl;
+    error += AssessRotationErrorAxisAngle(As[i], Bs, X, Zs[i]);
+  }
+  out << "Summed angle difference rotation error " << error << endl;
+
+  error = 0;
+  for (int i = 0; i < robot_mounted_cameras; i++) {
+    error += AssessTranslationError(As[i], Bs, X, Zs[i]);
+  }
+  out << "Summed translation error " << error << endl;
+
+  error = 0;
+  for (int i = 0; i < robot_mounted_cameras; i++) {
+    error += AssessErrorWhole(As[i], Bs, X, Zs[i]);
+  }
+  out << "Summed whole error " << error << endl;
+  out << endl;
 
   out.close();
 
@@ -1433,7 +1534,13 @@ void ReadRobotFileRobotCaliTxt(string filename, vector < Matrix4d > & Bs) {
       }
     }
 
-    Bs.push_back(B1);
+
+    if (useWithBPA) {
+      Bs.push_back(B1.inverse().eval());
+    } else {
+      Bs.push_back(B1);
+    }
+
   } in .close();
 }
 
