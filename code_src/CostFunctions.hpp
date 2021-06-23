@@ -92,6 +92,28 @@ void Convert6ParameterAxisAngleRepresentationIntoMatrix(const T* X, T* XM){
 }
 
 template <typename T>
+void ConvertMatrixInto6ParameterAxisAngleRepresentation(const T* XM, T* X){
+
+  T RX[9];
+  RX[0] = XM[0];
+  RX[1] = XM[1];
+  RX[2] = XM[2];
+  RX[3] = XM[4];
+  RX[4] = XM[5];
+  RX[5] = XM[6];
+  RX[6] = XM[8];
+  RX[7] = XM[9];
+  RX[8] = XM[10];
+
+  ceres::RotationMatrixToAngleAxis(RX, X);
+
+  X[3] = XM[3];
+  X[4] = XM[7];
+  X[5] = XM[11];
+  X[6] = T(0);
+}
+
+template <typename T>
 void Convert7ParameterQuaternionRepresentationIntoMatrix(const T* X, T* XM){
 	T RX[9];
 
@@ -186,6 +208,60 @@ void MatrixMultiply(const T* X, const T* Y, T* M, int row0, int col0, int row1, 
 }
 
 template <typename T>
+void MatrixMultiply(
+    const T* X,
+    const T* Y,
+    T* M,
+    int row0_start,
+    int row0_end,
+    int col0_start,
+    int col0_end,
+    int row1_start,
+    int row1_end,
+    int col1_start,
+    int col1_end){
+
+	//	cout << "Args in Matrix Multiply: " << endl;
+	//	cout << row0 << ", " << col0 << ", " << row1 << ", " << col1 << endl;
+	//
+	//	cout << "First matrix " << endl;
+	//	PrintMatrix(X, row0, col0);
+	//
+	//	cout << "Second matrix " << endl;
+	//	PrintMatrix(Y, row1, col1);
+
+/*
+	// not assuming square matrices
+	if (col0_end - col0_start != row1_end - row1_start){
+		cout << "Wrong args sent to Matrix Multiply: " << endl;
+		cout << row0 << ", " << col0 << ", " << row1 << ", " << col1 << endl;
+	}
+
+	int xi, yi;
+	T r;
+	for (int i = 0; i < (row0_end - row0_start); i++){
+		for (int j = 0; j < (col1_end - col1_start); j++){
+			// dot product the ith row of X by the jth column of Y, results in the
+			//cout << "i, j " << i << ", " << j << endl;
+
+			r= T(0);
+			for (int index = 0; index < (col0_end - col0_start); index++){
+				xi = (i+row0_start)*col0 + index+col0_start; // walk across the row
+				yi = (index+row1_start)*col1 + (j+col1_start); // walk down the columm
+
+				r += X[xi]*Y[yi];
+
+				//cout << "Mult " << xi << " from first by " << yi << " from second" << endl;
+			}
+			//cout << "Result stored in " << i*col1 + j << endl;
+			//char ch; cin >> ch;
+			M[i*(col1_end - col1_start) + j] = r;
+		}
+	}
+  */
+}
+
+template <typename T>
 void PrintMatrix(const T* X, int row0, int col0){
 
 	for (int i = 0, index = 0; i < row0; i++){
@@ -263,7 +339,7 @@ struct CF1_2 {
 				residuals[i] = AT[i] - term1[i];
 			}
 
-		}break;
+		} break;
 		default: {
 			cout << "Cost type " << cost_type << "  not supported in CF1_2 " << endl;
 		}
@@ -363,8 +439,7 @@ struct CF1_2_multi {
 			for (int i = 0; i < 12; i++){
 				residuals[i] = (AT[i] - term1[i]);
 			}
-
-		}break;
+		} break;
 		default: {
 			cout << "Cost type " << cost_type << "  not supported in CF1_2 " << endl;
 		}
