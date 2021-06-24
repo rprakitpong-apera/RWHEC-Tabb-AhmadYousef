@@ -39,7 +39,6 @@
 using namespace std;
 
 bool VERBOSE = true;
-
 bool useWithBPA = false;
 bool hasInitSol = false;
 
@@ -103,7 +102,13 @@ int main(int argc, char ** argv) {
   }
 
   ifstream in ; in .open(cali_object_file.c_str());
-
+  /*
+    if (! in ) {
+      cout << "You forgot the calibration_object.txt file or the path is wrong" << endl << argv[1] << endl;;
+      cout << cali_object_file << endl;
+      exit(1);
+    } in .close();
+  */
   //	string temp;
   //	in >> temp >> chess_mm_height;
   //	in >> temp >> chess_mm_width;
@@ -162,10 +167,8 @@ int main(int argc, char ** argv) {
   //-----------------------------------------------------------------------
 
   // set up out
-
   useWithBPA = false;
   hasInitSol = true;
-
 
   std::ofstream out;
   std::string filename = write_dir + "/return.txt";
@@ -174,7 +177,7 @@ int main(int argc, char ** argv) {
   int robot_mounted_cameras = 1;
 
   vector < vector < MatrixXd > > As;
-  vector<Matrix4d> Atemp;
+  vector < Matrix4d > Atemp;
   vector < Matrix4d > Bs;
 
   // parse As (camera to pattern matrix)
@@ -191,7 +194,7 @@ int main(int argc, char ** argv) {
 
   As.push_back(vector < MatrixXd > ());
   for (int i = 0; i < Atemp.size(); i++) {
-    MatrixXd m(Atemp[i]);
+    MatrixXd m(ConvertToMM(Atemp[i]));
     As[0].push_back(m);
   }
 
@@ -204,6 +207,10 @@ int main(int argc, char ** argv) {
   } else {
     fclose(file);
     ReadRobotFileRobotCaliTxt(filename, Bs);
+  }
+
+  for (int i = 0; i < Bs.size(); i++) {
+    Bs[i] = ConvertToMM(Bs[i]);
   }
 
   //for (auto a : As[0]) {
@@ -248,20 +255,19 @@ int main(int argc, char ** argv) {
     }
   }
 
-
   double x_init[16] = {
     -0.3878959617055199,
     0.004364263373850057,
     -0.9216778580175975,
-    -0.0457420235938677,
+    -45.7420235938677,
     0.9210131460735058,
     -0.03632518488656273,
     -0.3877932284519243,
-    -0.03632998413824456,
-    -0.03517160646989169,
-    -0.9993203872519777,
-    0.010070694226061622,
-    0.037211409415038775,
+    -36.32998413824456,
+    -.03517160646989169,
+    -.9993203872519777,
+    10.070694226061622,
+    37.211409415038775,
     0.0,
     0.0,
     0.0,
@@ -271,15 +277,15 @@ int main(int argc, char ** argv) {
     0.007260096311636788,
     0.9999217623741498,
     0.008851729677161368,
-    0.5246475131872872,
+    524.6475131872872,
     0.9997830303513556,
     -0.007085006931888252,
     -0.019421653661592122,
-    -0.23784146013932012,
+    -237.84146013932012,
     -0.019360294635344173,
     0.00898883987451476,
-    -0.9997580352727142,
-    1.4378064225857234,
+    -.9997580352727142,
+    1437.8064225857234,
     0.0,
     0.0,
     0.0,
@@ -290,8 +296,8 @@ int main(int argc, char ** argv) {
   // give reasonable initial guess, from set-3 19--9.json
   // X = tcp 2 pattern
   // Z = rob 2 cam
-  ConvertMatrixInto6ParameterAxisAngleRepresentation < double > ( & x_init[0], & xarray[7]); // put into z
-  ConvertMatrixInto6ParameterAxisAngleRepresentation < double > ( & z_init[0], & xarray[0]); // put into x
+  ConvertMatrixInto6ParameterAxisAngleRepresentation < double > ( & x_init[0], & xarray[0]); // put into z
+  ConvertMatrixInto6ParameterAxisAngleRepresentation < double > ( & z_init[0], & xarray[7]); // put into x
   }
 
   // save initial solution translation and rotation errors to file
@@ -299,13 +305,13 @@ int main(int argc, char ** argv) {
   if (hasInitSol) {
   for (int r = 0, in = 0; r < 4; r++) {
     for (int c = 0; c < 4; c++, in ++) {
-      X(r, c) = z_init[ in ];
+      X(r, c) = x_init[ in ];
     }
   }
   for (int i = 1; i < (robot_mounted_cameras + 1); i++) {
     for (int r = 0, in = 0; r < 4; r++) {
       for (int c = 0; c < 4; c++, in ++) {
-        Zs[i - 1](r, c) = x_init[ in ];
+        Zs[i - 1](r, c) = z_init[ in ];
       }
     }
   }
@@ -338,7 +344,7 @@ int main(int argc, char ** argv) {
 
   error = 0;
   for (int i = 0; i < robot_mounted_cameras; i++) {
-    error += AssessTranslationError(As[i], Bs, X, Zs[i]);
+    error += ConvertFromMM(AssessTranslationError(As[i], Bs, X, Zs[i]));
   }
   out << "Summed translation error " << error << endl;
 
@@ -413,7 +419,6 @@ int main(int argc, char ** argv) {
     X = X.inverse().eval();
   }
 
-
   if (useWithBPA) {
     //Matrix4d temp = X;
     //X = Zs[0];
@@ -422,12 +427,13 @@ int main(int argc, char ** argv) {
   //Zs[0] = Zs[0].inverse().eval();
   }
 
-  out << "X " << endl << X << endl;
-  cout << "X " << endl << X << endl;
+  // save iterative solution translation and rotation errors to file
+  out << "X " << endl << ConvertFromMM(X) << endl;
+  cout << "X " << endl << ConvertFromMM(X) << endl;
 
   for (int i = 0; i < robot_mounted_cameras; i++) {
-    out << "Z " << i << endl << Zs[i] << endl;
-    cout << "Z " << i << endl << Zs[i] << endl;
+    out << "Z " << i << endl << ConvertFromMM(Zs[i]) << endl;
+    cout << "Z " << i << endl << ConvertFromMM(Zs[i]) << endl;
   }
 
   out << "Errors from iterative solution" << endl;
@@ -449,7 +455,7 @@ int main(int argc, char ** argv) {
 
   error = 0;
   for (int i = 0; i < robot_mounted_cameras; i++) {
-    error += AssessTranslationError(As[i], Bs, X, Zs[i]);
+    error += ConvertFromMM(AssessTranslationError(As[i], Bs, X, Zs[i]));
   }
   out << "Summed translation error " << error << endl;
 
@@ -1534,13 +1540,11 @@ void ReadRobotFileRobotCaliTxt(string filename, vector < Matrix4d > & Bs) {
       }
     }
 
-
     if (useWithBPA) {
       Bs.push_back(B1.inverse().eval());
     } else {
       Bs.push_back(B1);
     }
-
   } in .close();
 }
 
@@ -1658,6 +1662,10 @@ double AssessRotationErrorAxisAngle(vector < MatrixXd > & As, vector < Matrix4d 
       ceres::RotationMatrixToAngleAxis(RV, aa);
 
       local_error = 57.2958 * sqrt(pow(aa[0], 2) + pow(aa[1], 2) + pow(aa[2], 2));
+      for (int j = 0; j < 3; j++) {
+        //cout << aa[j] << ",";
+      }
+      //cout << sqrt(pow(aa[0], 2) + pow(aa[1], 2) + pow(aa[2], 2)) << endl;
 
       //R.NormFrobenius()
       error += local_error;
@@ -1667,7 +1675,75 @@ double AssessRotationErrorAxisAngle(vector < MatrixXd > & As, vector < Matrix4d 
   // remember to average amoung cameras when there is more than one camera.
   return error / number_stops;
 }
+/*
+double AssessTranslationError(vector<MatrixXd>& As_temp, vector<Matrix4d>& Bs_temp, Matrix4d& X_temp, Matrix4d& Z_temp) {
+  double error = 0;
 
+  // AX=ZB
+  // Binv * Z = X * Ainv
+
+  vector < MatrixXd > As;
+  vector < Matrix4d > Bs;
+  Matrix4d X = Z_temp;
+  Matrix4d Z = X_temp;
+
+  for (auto a : As_temp) {
+    As.push_back(a.inverse().eval());
+  }
+  for (auto a : Bs_temp) {
+    Bs.push_back(a.inverse().eval());
+  }
+
+  Matrix3d RA;
+  Matrix3d RZ;
+  MatrixXd tx(3, 1);
+  MatrixXd ta(3, 1);
+  MatrixXd tb(3, 1);
+  MatrixXd tz(3, 1);
+
+  Matrix4d H;
+
+  for (int r = 0; r < 3; r++) {
+    for (int c = 0; c < 3; c++) {
+      RZ(r, c) = Z(r, c);
+    }
+
+    tx(r, 0) = X(r, 3);
+    tz(r, 0) = Z(r, 3);
+  }
+
+  MatrixXd result0, result1;
+
+  double number_stops = Bs.size();
+
+  Matrix4d H1, H2;
+
+  for (int i = 0; i < int(Bs.size()); i++) {
+    // try once for now .....
+    if (As[i].size() > 0) {
+      for (int r = 0; r < 3; r++) {
+        for (int c = 0; c < 3; c++) {
+          RA(r, c) = As[i](r, c);
+        }
+        ta(r, 0) = As[i](r, 3);
+        tb(r, 0) = Bs[i](r, 3);
+      }
+
+      result0 = RA * tx + ta - (RZ * tb + tz);
+
+      for (int r = 0; r < 3; r++) {
+        error += result0(r, 0) * result0(r, 0);
+      }
+
+    }
+  }
+
+  // this error is squared within the parentheses
+  // Within the main loop, average amoung cameras for multi-camera datasets.
+  return (error / number_stops);
+}
+*/
+// correct implementation
 double AssessTranslationError(vector < MatrixXd > & As, vector < Matrix4d > & Bs, Matrix4d & X, Matrix4d & Z) {
   double error = 0;
 
@@ -1737,15 +1813,17 @@ double AssessTranslationError(vector < MatrixXd > & As, vector < Matrix4d > & Bs
       //			char fg; cin >> fg;
 
       //cout << "translation result " << result0 << endl;
-
+      double err = 0;
       for (int r = 0; r < 3; r++) {
         //error += (H1(r,3) - H2(r, 3))*(H1(r,3) - H2(r, 3));
-        error += result0(r, 0) * result0(r, 0);
+        err += result0(r, 0) * result0(r, 0);
+        cout << result0(r,0) << ",";
       }
-
+      error += sqrt(err);
+      cout << err << "," << sqrt(err) << endl;
     }
   }
-
+  cout << (error / number_stops) << endl;
   // this error is squared within the parentheses
   // Within the main loop, average amoung cameras for multi-camera datasets.
   return (error / number_stops);

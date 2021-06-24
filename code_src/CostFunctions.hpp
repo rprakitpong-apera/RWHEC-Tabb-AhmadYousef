@@ -142,7 +142,6 @@ void Convert7ParameterQuaternionRepresentationIntoMatrix(const T* X, T* XM){
 
 }
 
-
 template <typename T>
 void MatrixMultiply(const T* X, const T* Y, T* M, int row_col){
 

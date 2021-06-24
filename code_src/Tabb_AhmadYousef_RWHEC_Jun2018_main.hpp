@@ -49,6 +49,7 @@ double AssessRotationErrorAxisAngle(vector<MatrixXd>& As, vector<Matrix4d>& Bs, 
 
 double AssessTranslationErrorDenominator(vector<Matrix4d>& As, vector<Matrix4d>& Bs, Matrix4d& X, Matrix4d& Z);
 
+//double AssessTranslationError(vector<MatrixXd>& As_temp, vector<Matrix4d>& Bs_temp, Matrix4d& X_temp, Matrix4d& Z_temp);
 double AssessTranslationError(vector<MatrixXd>& As, vector<Matrix4d>& Bs, Matrix4d& X, Matrix4d& Z);
 
 double CalculateReprojectionError(CaliObjectOpenCV2* CO, vector<MatrixXd>& As, vector<Matrix4d>& Bs,
@@ -59,5 +60,31 @@ void WritePatterns(double* pattern_points, int chess_h, int chess_w, int index_n
 string FindValueOfFieldInFile(string filename, string fieldTag, bool seperator);
 
 void EnsureDirHasTrailingBackslash(string& write_directory);
+
+Matrix4d ConvertToMM(Matrix4d XM){
+	double unit = 1000;
+  XM(0,3) = unit*XM(0,3);
+  XM(1,3) = unit*XM(1,3);
+  XM(2,3) = unit*XM(2,3);
+  return XM;
+}
+
+Matrix4d ConvertFromMM(Matrix4d XM){
+	double unit = 1000;
+  XM(0,3) = XM(0,3)/unit;
+  XM(1,3) = XM(1,3)/unit;
+  XM(2,3) = XM(2,3)/unit;
+  return XM;
+}
+
+double ConvertToMM(double XM){
+	double unit = 1000;
+  return unit*XM;
+}
+
+double ConvertFromMM(double XM){
+	double unit = 1000;
+  return XM/unit;
+}
 
 #endif /* TABB_AHMADYOUSEF_RWHEC_MAY2018_MAIN_HPP_ */
